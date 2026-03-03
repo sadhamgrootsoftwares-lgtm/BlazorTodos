@@ -1,0 +1,352 @@
+﻿@page "/todos"
+@attribute [Authorize]
+
+@using BlazorTodos.Shared.DTOs
+@inject BlazorTodos.Client.Services.TodoService TodoService
+@inject BlazorTodos.Client.Services.ToastService ToastService
+
+<div class="container mt-4 animate__animated animate__fadeInUp">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-0">My Tasks</h3>
+            <small class="text-muted">Manage your daily productivity</small>
+        </div>
+
+        <div class="d-flex gap-2">
+            <select class="form-select shadow-sm"
+                    style="width:150px;"
+                    @bind="selectedFilter">
+                <option value="All">All</option>
+                <option value="Completed">Completed</option>
+                <option value="Pending">Pending</option>
+            </select>
+
+            <input class="form-control shadow-sm"
+                   style="width:200px;"
+                   placeholder="Search..."
+                   @bind="searchText"
+                   @bind:event="oninput" />
+        </div>
+    </div>
+
+    <!-- Create Task -->
+    <EditForm Model="newTodo" OnValidSubmit="AddTodo">
+        <DataAnnotationsValidator />
+
+        <div class="card p-4 mb-4 shadow border-0 create-card">
+
+            <InputText class="form-control mb-2"
+                       placeholder="Task Title..."
+                       @bind-Value="newTodo.Title" />
+
+            <InputText class="form-control mb-2"
+                       placeholder="Task Description..."
+                       @bind-Value="newTodo.Description" />
+
+            <InputSelect class="form-select mb-2"
+                         @bind-Value="newTodo.Priority">
+                <option value="">-- Select Priority --</option>
+                @foreach (var priority in Enum.GetValues<BlazorTodos.Shared.Enums.PriorityLevel>())
+                {
+                    <option value="@priority">@priority</option>
+                }
+            </InputSelect>
+
+            <InputDate class="form-control mb-3"
+                       @bind-Value="newTodo.DueDate" />
+
+            <button class="btn btn-success w-100">
+                Add Task
+            </button>
+
+        </div>
+    </EditForm>
+
+    <!-- Tasks -->
+    @if (todos == null)
+    {
+        <div class="text-center mt-5">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else if (!FilteredTodos.Any())
+    {
+        <div class="text-center mt-5 text-muted">
+            <h5>No tasks found</h5>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var todo in FilteredTodos)
+            {
+                <div class="col-md-6 col-lg-4 mb-3">
+
+                    <div class="card shadow-sm h-100 border-0 todo-card">
+
+                        <div class="priority-strip @GetPriorityStrip(todo.Priority)"></div>
+
+                        <div class="card-body">
+
+                            @if (editingTodoId == todo.Id)
+                            {
+                                <InputText class="form-control mb-2"
+                                           @bind-Value="editTodoModel.Title" />
+
+                                <InputText class="form-control mb-2"
+                                           @bind-Value="editTodoModel.Description" />
+
+                                <InputSelect class="form-select mb-2"
+                                             @bind-Value="editTodoModel.Priority">
+                                    @foreach (var priority in Enum.GetValues<BlazorTodos.Shared.Enums.PriorityLevel>())
+                                    {
+                                        <option value="@priority">@priority</option>
+                                    }
+                                </InputSelect>
+
+                                <InputDate class="form-control mb-3"
+                                           @bind-Value="editTodoModel.DueDate" />
+
+                                <div class="d-flex justify-content-end">
+                                    <button class="btn btn-success btn-sm me-2"
+                                            @onclick="() => SaveEdit(todo.Id)">
+                                        Save
+                                    </button>
+
+                                    <button class="btn btn-secondary btn-sm"
+                                            @onclick="CancelEdit">
+                                        Cancel
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h5 class="card-title @(todo.IsCompleted ? "completed-task" : "")">
+                                        @todo.Title
+                                    </h5>
+
+                                    <span class="badge @GetPriorityBadge(todo.Priority)">
+                                        @todo.Priority
+                                    </span>
+                                </div>
+
+                                <p class="card-text text-muted small">
+                                    @todo.Description
+                                </p>
+
+                                <p class="small mb-2">
+                                    <strong>Due:</strong>
+                                    @(todo.DueDate?.ToShortDateString() ?? "-")
+                                </p>
+
+                                @if (todo.DueDate.HasValue &&
+                                                    todo.DueDate.Value.Date < DateTime.Today &&
+                                                    !todo.IsCompleted)
+                                {
+                                    <span class="badge bg-danger mb-2 animate__animated animate__pulse animate__infinite">
+                                        Overdue
+                                    </span>
+                                }
+
+                                <hr />
+
+                                <div class="d-flex justify-content-between align-items-center">
+
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               checked="@todo.IsCompleted"
+                                               @onchange="async () => await Toggle(todo.Id)" />
+                                        <label class="form-check-label">
+                                            @(todo.IsCompleted ? "Completed" : "Pending")
+                                        </label>
+                                    </div>
+
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-primary me-2"
+                                                @onclick="() => StartEdit(todo)">
+                                            Edit
+                                        </button>
+
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                @onclick="() => ConfirmDelete(todo.Id)">
+                                            Delete
+                                        </button>
+                                    </div>
+
+                                </div>
+                            }
+
+                        </div>
+                    </div>
+
+                </div>
+            }
+        </div>
+    }
+
+</div>
+
+@if (showDeleteModal)
+{
+    <div class="modal show d-block"
+         style="background-color: rgba(0,0,0,0.5); backdrop-filter: blur(5px);">
+        <div class="modal-dialog">
+            <div class="modal-content border-0">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                </div>
+
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this task?</p>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary"
+                            @onclick="CloseDeleteModal">
+                        Cancel
+                    </button>
+
+                    <button class="btn btn-danger"
+                            @onclick="DeleteConfirmed">
+                        Delete
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+
+    private List<TodoResponseDto>? todos;
+    private CreateTodoDto newTodo = new();
+
+    private string searchText = string.Empty;
+    private string selectedFilter = "All";
+
+    private bool showDeleteModal = false;
+    private int deleteTodoId;
+
+    private int? editingTodoId = null;
+    private CreateTodoDto editTodoModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTodos();
+    }
+
+    private async Task LoadTodos()
+    {
+        todos = await TodoService.GetTodos();
+    }
+
+    private async Task AddTodo()
+    {
+        var success = await TodoService.CreateTodo(newTodo);
+
+        if (success)
+        {
+            ToastService.ShowSuccess("Task created successfully!");
+            newTodo = new();
+            await LoadTodos();
+        }
+        else
+        {
+            ToastService.ShowError("Failed to create task.");
+        }
+    }
+
+    private async Task Toggle(int id)
+    {
+        await TodoService.ToggleTodo(id);
+        await LoadTodos();
+    }
+
+    private void ConfirmDelete(int id)
+    {
+        deleteTodoId = id;
+        showDeleteModal = true;
+    }
+
+    private void CloseDeleteModal()
+    {
+        showDeleteModal = false;
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        await TodoService.DeleteTodo(deleteTodoId);
+        showDeleteModal = false;
+        ToastService.ShowSuccess("Task deleted successfully!");
+        await LoadTodos();
+    }
+
+    private void StartEdit(TodoResponseDto todo)
+    {
+        editingTodoId = todo.Id;
+
+        editTodoModel = new CreateTodoDto
+        {
+            Title = todo.Title,
+            Description = todo.Description,
+            Priority = todo.Priority,
+            DueDate = todo.DueDate
+        };
+    }
+
+    private async Task SaveEdit(int id)
+    {
+        var success = await TodoService.UpdateTodo(id, editTodoModel);
+
+        if (success)
+        {
+            ToastService.ShowSuccess("Task updated successfully!");
+            editingTodoId = null;
+            await LoadTodos();
+        }
+        else
+        {
+            ToastService.ShowError("Update failed.");
+        }
+    }
+
+    private void CancelEdit()
+    {
+        editingTodoId = null;
+    }
+
+    private IEnumerable<TodoResponseDto> FilteredTodos =>
+        (todos ?? Enumerable.Empty<TodoResponseDto>())
+        .Where(t =>
+            selectedFilter == "All" ||
+            (selectedFilter == "Completed" && t.IsCompleted) ||
+            (selectedFilter == "Pending" && !t.IsCompleted))
+        .Where(t =>
+            string.IsNullOrWhiteSpace(searchText) ||
+            (t.Title?.Contains(searchText, StringComparison.OrdinalIgnoreCase) == true) ||
+            (t.Description?.Contains(searchText, StringComparison.OrdinalIgnoreCase) == true));
+
+    private string GetPriorityBadge(BlazorTodos.Shared.Enums.PriorityLevel priority) =>
+        priority switch
+        {
+            BlazorTodos.Shared.Enums.PriorityLevel.High => "bg-danger",
+            BlazorTodos.Shared.Enums.PriorityLevel.Medium => "bg-warning text-dark",
+            BlazorTodos.Shared.Enums.PriorityLevel.Low => "bg-success",
+            _ => "bg-secondary"
+        };
+
+    private string GetPriorityStrip(BlazorTodos.Shared.Enums.PriorityLevel priority) =>
+        priority switch
+        {
+            BlazorTodos.Shared.Enums.PriorityLevel.High => "priority-high",
+            BlazorTodos.Shared.Enums.PriorityLevel.Medium => "priority-medium",
+            BlazorTodos.Shared.Enums.PriorityLevel.Low => "priority-low",
+            _ => ""
+        };
+}

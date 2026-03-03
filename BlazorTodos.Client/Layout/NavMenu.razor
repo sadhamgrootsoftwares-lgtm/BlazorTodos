@@ -1,0 +1,55 @@
+﻿@inject BlazorTodos.Client.Services.AuthService AuthService
+@inject NavigationManager Navigation
+@inject BlazorTodos.Client.Services.ToastService ToastService
+
+<div class="navbar-vertical animate__animated animate__fadeInDown">
+    <div class="brand d-flex align-items-center mb-4 gap-3">
+        <div class="icon-wrap bg-white rounded-3 shadow-sm d-flex align-items-center justify-content-center p-1" style="width: 40px; height: 40px;">
+            <i class="bi bi-check2-square fs-4 text-primary"></i>
+        </div>
+        <span class="fw-bold tracking-tight" style="font-size: 1.4rem; letter-spacing: -0.5px;">Blazor Todos</span>
+    </div>
+
+    <nav class="flex-column d-flex flex-grow-1 mt-3">
+        <AuthorizeView>
+            <Authorized>
+                <NavLink class="nav-link d-flex align-items-center py-2 px-3 mb-2" href="" Match="NavLinkMatch.All">
+                    <i class="bi bi-house-door-fill me-3 fs-5 text-info"></i>
+                    <span>Home</span>
+                </NavLink>
+
+                <NavLink class="nav-link d-flex align-items-center py-2 px-3 mb-2" href="/todos">
+                    <i class="bi bi-list-check me-3 fs-5 text-warning"></i>
+                    <span>My Tasks</span>
+                </NavLink>
+
+                <div class="mt-auto pb-3">
+                    <button class="btn logout-btn w-100 shadow-sm d-flex align-items-center justify-content-center py-2 px-3"
+                            @onclick="Logout">
+                        <i class="bi bi-box-arrow-right me-3 fs-5"></i>
+                        <span>Logout</span>
+                    </button>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <NavLink class="nav-link d-flex align-items-center py-2 px-3 mb-2" href="/login">
+                    <i class="bi bi-box-arrow-in-right me-3 fs-5 text-primary"></i>
+                    <span>Login</span>
+                </NavLink>
+                <NavLink class="nav-link d-flex align-items-center py-2 px-3 mb-2" href="/register">
+                    <i class="bi bi-person-plus-fill me-3 fs-5 text-success"></i>
+                    <span>Register</span>
+                </NavLink>
+            </NotAuthorized>
+        </AuthorizeView>
+    </nav>
+</div>
+
+@code {
+    private async Task Logout()
+    {
+        await AuthService.Logout();
+        ToastService.ShowSuccess("Logged out successfully!");
+        Navigation.NavigateTo("/login");
+    }
+}

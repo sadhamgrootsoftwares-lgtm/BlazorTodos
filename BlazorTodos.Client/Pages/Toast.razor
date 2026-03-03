@@ -1,0 +1,66 @@
+﻿@inject BlazorTodos.Client.Services.ToastService ToastService
+@implements IDisposable
+
+@if (visible)
+{
+    <div class="toast-container position-fixed top-0 end-0 p-4 animate__animated @(visible ? "animate__fadeInRight" : "animate__fadeOutRight")"
+         style="z-index: 9999;">
+        <div class="toast show text-white bg-@toastType border-0 shadow-lg rounded-3" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex align-items-center py-2">
+                <div class="toast-body fw-bold d-flex align-items-center">
+                    @if(toastType == "success") {
+                        <i class="bi bi-check-circle-fill fs-5 me-2"></i>
+                    } else {
+                        <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+                    }
+                    @message
+                </div>
+
+                <div class="ms-auto pe-3">
+                    <button type="button"
+                            class="btn-close btn-close-white"
+                            @onclick="Hide">
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool visible;
+    private string message = string.Empty;
+    private string toastType = "success";
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnShow += ShowToast;
+    }
+
+    private async void ShowToast(string msg, string type)
+    {
+        await InvokeAsync(async () =>
+        {
+            message = msg;
+            toastType = type;
+            visible = true;
+            StateHasChanged();
+
+            await Task.Delay(4000);
+
+            visible = false;
+            StateHasChanged();
+        });
+    }
+
+    private void Hide()
+    {
+        visible = false;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnShow -= ShowToast;
+    }
+}

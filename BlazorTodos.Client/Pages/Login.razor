@@ -1,0 +1,98 @@
+﻿@page "/login"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject BlazorTodos.Client.Services.ToastService ToastService
+
+<div class="login-wrapper d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+    <div class="card shadow-lg p-4 border-0 login-card animate__animated animate__zoomIn" style="max-width: 400px; width: 100%; border-radius: 20px;">
+        <div class="text-center mb-4">
+             <div class="icon-circle bg-primary text-white mb-3 mx-auto shadow-sm">
+                <i class="bi bi-person-lock fs-2"></i>
+            </div>
+            <h3 class="fw-bold">Login</h3>
+            <p class="text-muted small">Welcome back! Please login to your account.</p>
+        </div>
+
+        <EditForm Model="model" OnValidSubmit="HandleLogin">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Email</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-envelope text-muted"></i></span>
+                    <InputText class="form-control border-start-0"
+                               @bind-Value="model.Email"
+                               placeholder="Email address" />
+                </div>
+                <ValidationMessage For="@(() => model.Email)" class="text-danger small mt-1" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Password</label>
+                <div class="input-group position-relative">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-shield-lock text-muted"></i></span>
+                    <InputText type="@passwordType"
+                               class="form-control border-start-0 pe-5"
+                               @bind-Value="model.Password"
+                               placeholder="Enter password" />
+                    <span class="password-toggle"
+                          @onclick="TogglePassword"
+                          style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); z-index: 10; cursor: pointer;">
+                        <i class="bi @(showPassword ? "bi-eye-slash text-primary" : "bi-eye text-muted")"></i>
+                    </span>
+                </div>
+                <ValidationMessage For="@(() => model.Password)" class="text-danger small mt-1" />
+            </div>
+
+            <button class="btn btn-primary w-100 py-2 mt-2 shadow-sm fw-bold d-flex align-items-center justify-content-center"
+                    disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    <span>Logging in...</span>
+                }
+                else
+                {
+                    <span>Login</span>
+                }
+            </button>
+        </EditForm>
+
+        <div class="mt-4 text-center">
+            <p class="text-muted small mb-0">Don't have an account?</p>
+            <a href="/register" class="text-decoration-none fw-bold">Create one now</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginRequestDto model = new();
+    private bool showPassword;
+    private bool isLoading;
+
+    private string passwordType => showPassword ? "text" : "password";
+
+    private void TogglePassword()
+    {
+        showPassword = !showPassword;
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+
+        var success = await AuthService.Login(model);
+
+        isLoading = false;
+
+        if (success)
+        {
+            ToastService.ShowSuccess("Welcome back! Login successful.");
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            ToastService.ShowError("Invalid email or password. Please try again.");
+        }
+    }
+}
